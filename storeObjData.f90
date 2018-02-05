@@ -78,31 +78,6 @@ subroutine getVerticesTiles(unitNum, filename, vertices, tiles)
 	close(unitNum)	
 end subroutine getVerticesTiles
 
-subroutine printMultiDimArrayInt(array, rows, cols)
-	integer, intent(in) :: rows, cols
-	integer, dimension(0:cols, 0:rows - 1), intent(in) :: array
-	integer :: i = 1, j = 1
-	
-	do i = 1, rows
-		do j = 1, cols
-			print*, array(i, j)
-		end do
-	end do	
-end subroutine printMultiDimArrayInt
-
-subroutine printMultiDimArrayReal(array, rows, cols)
-	integer, intent(in) :: rows, cols
-	real*8, dimension(1:rows, 1:cols), intent(in) :: array
-	integer :: i, j
-	
-	do i = 1, rows
-		do j = 1, cols
-			print*, i
-			print*, j
-			print*, array(i, j)
-		end do
-	end do	
-end subroutine printMultiDimArrayReal
 
 subroutine getTileVertices(vertices, tileSet, Point1, Point2, Point3, nvertices)
 	integer, intent(in) :: nvertices
@@ -159,7 +134,7 @@ subroutine getConnectedVertexPairs(pairs)
 	implicit none
 	
 	integer, dimension (1) :: maxtile,mintile
-	integer, dimension(1:npairs+1, 1:2), intent(out) :: pairs
+	integer, dimension(1:npairs, 1:2), intent(out) :: pairs
 	integer, dimension(1:3) :: tile
 	integer :: ii, paircount, l, k, j
 	integer, dimension(1:2) :: pair
@@ -182,7 +157,9 @@ subroutine getConnectedVertexPairs(pairs)
 				pair=(/tile(j),tile(k)/)
 				yes=.false.
 				do l=1,paircount !do5
-					yes=yes.or.(pair(1).eq.pairs(l,1) .and.pair(2).eq.pairs(l,2))
+					if (l <= npairs) then
+						yes=yes.or.(pair(1).eq.pairs(l,1) .and.pair(2).eq.pairs(l,2))
+					end if
 				enddo !do5
 				if (.not.yes) then
 					pairs(paircount,1:2)=pair
@@ -194,161 +171,39 @@ subroutine getConnectedVertexPairs(pairs)
 end subroutine getConnectedVertexPairs
 
 subroutine getTileHorizon(pairs, horizonmap)
-	!use calculationsMod
+	use calculationsMod
 	use asteroid_struct
 	implicit none
-	integer, dimension(1:npairs+1, 1:2), intent(in) :: pairs
+	integer, dimension(1:npairs, 1:2), intent(in) :: pairs
 	real*8, dimension(1:nhorizon,1:ntiles), intent(out) :: horizonmap
 	integer :: i
 	do i=1,ntiles
-		call tilehorizon(i,pairs,horizonmap(1,i), ntiles, npairs, nvertices, nhorizon, &
-		pi, asteroid%normals, asteroid%vertices, asteroid%centroids)
-		print*, horizonmap(1,i)
+		call tilehorizon(i,pairs,horizonmap(1,i))
 	enddo
 end subroutine getTileHorizon
 
-subroutine test(a1, b1, crossit)
-	!real, dimension(1:3), intent(in) :: a, b
-	!real*8, dimension(1:3), intent(in) :: a, b
-	real, dimension(1:3), intent(in):: a1, b1
-	real, dimension(1:3), intent(out) :: crossit
-	print*, a1
-	print*, b1
-	crossit = (/0.2136159,0.774723606,0.00000/)
-	print*, crossit
-	!crossit = cshift(a1,shift=1)*cshift(b1,shift=-1)-cshift(b1,shift=1)*cshift(a1,shift=-1)	
-end subroutine test
-
-subroutine cross(a,b, crossed)
-	real, dimension(1:3), intent(in) :: a, b
-	real, dimension(1:3), intent(out) :: crossed
-	
-	crossed(1) = a(2)*b(3) - a(3)*b(2)
-	crossed(2) = a(3) * b(1) - a(1) * b(3)
-	crossed(3) = a(1) * b(2) - a(2) * b(1)
-end subroutine cross
-
-subroutine tilehorizon(tilenumber,pairs,tilehorizonmap, ntiles, npairs, nvertices, nhorizon, pi, normals, vertices, centroids)
+subroutine getAxisRatios
 	use calculationsMod
+	use asteroid_struct
 	implicit none
+	real*8 :: longAxis, middleAxis,shortAxis
+	real*8 :: midToLong, shortToLong
+	call calcAxes(longAxis, middleAxis, shortAxis, nvertices, asteroid%vertices)
+end subroutine getAxisRatios
 
-	integer, intent(in) :: tilenumber, ntiles, npairs, nvertices, nhorizon
-	real*8, intent(in) :: pi
-	real*8, dimension(1:ntiles, 1:3), intent(in):: normals, centroids
-	real, dimension(1:ntiles, 1:3) :: normals4
-	real*8, dimension(1:nvertices,1:3), intent(in) :: vertices
-	integer, dimension(1:npairs+1, 1:2), intent(in) :: pairs
-	real*8, dimension(1:ntiles), intent(inout) :: tilehorizonmap
-	real*8, dimension(1:nvertices) :: elevation,azimuth
-	real*8, dimension(1:3) :: dr,dr2,refvector,direction,direct1, out1, refvec
-	real*8, dimension (1) :: maxseg
-	real*8 :: sense,az
-	real, dimension(1:3) :: refvec1
-	real*8, dimension(1:npairs+1) :: el0,el1,az0,az1,segmentelev,temp
-	integer, dimension(1:npairs+1,1:2) :: usepairs
-	integer, dimension(1:nvertices) :: tileindexnumbers,blank1
-	integer, dimension(1:nvertices) :: abovehorizon
-	integer, dimension(1:3) :: tile
-	integer, dimension(1:2) :: pair
-	integer, dimension (1) :: maxtile,mintile
-	integer :: nwh,nabovehorizon,nusepairs,ii,l,j,k,i,paircount
-	logical, dimension(1:nvertices) :: mask
-	logical :: yes
+!subroutine getVisPairs()
+!	use calculationsMod
+!	use asteroid_struct
+!	implicit none
+!	integer:: nvispairs
+!	integer, dimension(:), allocatable:: vispairs
+	
+!	call calcVisTiles(ntiles, nhorizon, asteroid%horizonmap, asteroid%normals, asteroid%centroids, nvispairs, vispairs, &
+!	asteroid%vertices, asteroid%tiles)
+	
+!end subroutine getVisPairs
 
-	do i=1,nvertices
-		tileindexnumbers(i)=i
-		blank1(i)=0
-	end do
 
-	i=tilenumber
-	print*, i
-
-	! Get azimuth relative to north and elevation of all tile vertices as seen
-	! from the centroid of the ith tile.
-	print*, normals(i, 1:3)
-	normals4(1:ntiles,1:3) = real(normals(1:ntiles,1:3))
-	print*, normals4(i, 1:3)
-	call test(normals4(i, 1:3),(/0.00,0.00,1.00/),refvec1)
-	!call test((/-0.77472360658401374,0.21361593920594180,0.59512315021230833/),(/0.00,0.00,1.00/),refvec1)
-	refvec = (/0.2136159,0.774723606,0.00000/)
-	refvector=refvec/sqrt(sum(refvec**2))
-	do j=1,nvertices
-		dr2=vertices(j,1:3)-centroids(i,1:3)
-		dr=dr2/sqrt(sum(dr2**2))
-		call cross_product(normals(i,1:3),dr, direct1)
-		direction=direct1/sqrt(sum(direct1**2))
-		azimuth(j)=acos(dot_product(refvector,direction))
-		call cross_product(refvector,direction, out1)
-		sense=dot_product(normals(i,1:3), out1)
-		azimuth(j)=azimuth(j)*sense/abs(sense)
-		elevation(j)=pi/2.d0 &
-			-acos(dot_product(dr,normals(i,1:3)))
-	enddo
-
-	! Now compute the horizon map.
-	! We care only about those vertices that are above the horizon.
-
-	usepairs=1
-	mask=elevation > 1.d-6
-	nabovehorizon=count(mask)
-	tilehorizonmap(1:nhorizon)=0.d0
-	if (nabovehorizon .gt. 0) then  ! Now handle topography above horizon
-
-		abovehorizon=pack(tileindexnumbers,mask,blank1)
-		paircount=1
-		do j=1,npairs+1
-			yes=.false.
-			do l=1,nabovehorizon
-				yes=yes.or.(pairs(j,1).eq.abovehorizon(l) .or.pairs(j,2).eq.abovehorizon(l))
-			enddo
-			if (yes) then
-				usepairs(paircount,1:2)=(/pairs(j,1),pairs(j,2)/)
-				paircount=paircount+1
-			endif
-		enddo
-		paircount=paircount-1
-		nusepairs=paircount
-
-		! At each azimuth, find the highest tile edge.
-
-		el0=-99.d0
-		el1=-99.d0
-		az0=0.d0
-		az1=0.d0
-		temp=0.d0
-		el0(1:nusepairs)=elevation(usepairs(1:nusepairs,1))
-		el1(1:nusepairs)=elevation(usepairs(1:nusepairs,2))
-		az0(1:nusepairs)=azimuth(usepairs(1:nusepairs,1))
-		az1(1:nusepairs)=azimuth(usepairs(1:nusepairs,2))
-		where (az1.lt.az0)
-			temp=az1
-			az1=az0
-			az0=temp
-			temp=el1
-			el1=el0
-			el0=temp
-		endwhere
-		do j=1,nhorizon
-			segmentelev=0.d0
-			az=(dble(j)+0.5d0)*2.d0*pi/dble(nhorizon)-pi
-			where (el0.gt.-99d0.and.az1-az0 .le. pi .and. (az0.le.az.and.az.le.az1))
-				segmentelev=el0+(az-az0)*(el1-el0)/(az1-az0)
-			else where (el0.gt.-99.d0.and.az1-az0.gt.pi.and.az.le.az0)
-				az1=az1-2.d0*pi
-				segmentelev=el1+(az-az1)*(el0-el1)/(az0-az1)
-			else where (el0.gt.-99.d0.and.az1-az0.gt.pi.and.az.ge.az1)
-				az0=az0+2.*pi
-				segmentelev=el1+(az-az1)*(el0-el1)/(az0-az1)
-			end where
-			maxseg=maxval(segmentelev)
-			tilehorizonmap(j)=maxseg(1)
-			print*, tilehorizonmap(j)
-		enddo		
-
-	endif  ! Done handling topography above horizon
-
-	return
-end subroutine tilehorizon
 
 subroutine getNormals(normals)
 	use calculationsMod
@@ -467,7 +322,7 @@ program storeObjData
 	real*8, dimension(:,:), allocatable :: centroids !rank 3
 	real*8, dimension(:,:), allocatable :: normals !rank 4
 	real*8, dimension(:), allocatable :: areas !rank 5
-	integer, dimension(1:npairs+1, 1:2) :: pairs
+	integer, dimension(1:npairs, 1:2) :: pairs
 	real*8, dimension(1:nhorizon,1:ntiles) :: horizonmap
 	real*8 :: totalMass
 	!integer :: nvertices, ntiles, status1, i
@@ -536,9 +391,9 @@ program storeObjData
 		!		print*, "Failed to convert nverticesStr to int"
 		!	end if
 		!end do
-		print*, nvertices
-		print*, ntiles
-		print*, npairs+1
+		!print*, nvertices
+		!print*, ntiles
+		!print*, npairs
 		allocate(vertices(1:nvertices,1:3))
 		allocate(tiles(1:ntiles,1:3))
 		allocate(centroids(1:ntiles, 1:3))
@@ -562,13 +417,12 @@ program storeObjData
 		call getTotalMass(totalMass)
 		asteroid%totalmass = totalMass
 		call getConnectedVertexPairs(pairs)
-		print*, pairs
 		call getTileHorizon(pairs, horizonmap)
-		print*, horizonmap
 		asteroid%horizonmap=horizonmap
-		print*, vertices
-		print*, tiles
-		print*, objFile
+		call getAxisRatios
+		!print*, vertices
+		!print*, tiles
+		!print*, objFile
 	else
 		print*, "failure somewhere"
 	end if
